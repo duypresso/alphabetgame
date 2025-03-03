@@ -1,0 +1,81 @@
+body {
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background-color: #f0f2f5;
+}
+
+.game-container {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 600px;
+    width: 90%;
+}
+
+.letter-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 10px;
+    margin: 20px 0;
+}
+
+button {
+    padding: 1rem;
+    font-size: 1.2rem;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.score {
+    font-size: 1.5rem;
+    margin: 1rem 0;
+    color: #333;
+}
+
+.correct {
+    background-color: #4CAF50 !important;
+}
+
+.incorrect {
+    background-color: #f44336 !important;
+}
+
+#currentLetter {
+    font-size: 3rem;
+    margin: 1rem 0;
+    color: #2196F3;
+}
+
+.game-controls {
+    margin-top: 2rem;
+}
+
+@media (max-width: 480px) {
+    .letter-buttons {
+        grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
+    }
+
+    button {
+        padding: 0.8rem;
+        font-size: 1rem;
+    }
+}
