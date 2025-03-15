@@ -25,7 +25,7 @@ const mainConfig = {
 
 const rendererConfig = {
   mode: 'development',
-  entry: './src/renderer/index.ts',  // Changed from index.tsx to index.ts
+  entry: './src/renderer/index.tsx',  // Changed from index.ts to index.tsx
   target: 'electron-renderer',
   output: {
     path: path.resolve(__dirname, 'dist/renderer'),

@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "main": "dist/main/main.js",
   "scripts": {
-    "start": "electron .",
-    "build": "webpack --config webpack.config.js",
-    "dev": "webpack --config webpack.config.js --watch",
-    "server": "ts-node src/server/index.ts",
-    "dev:all": "concurrently \"npm run dev\" \"npm run server\""
-  },
+  "start": "electron .",
+  "clean": "rimraf dist",
+  "build": "npm run clean && webpack --config webpack.config.js",
+  "dev": "webpack --config webpack.config.js --watch",
+  "server": "ts-node src/server/index.ts",
+  "dev:all": "concurrently \"npm run dev\" \"npm run server\""
+},
+
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -28,6 +30,7 @@
     "concurrently": "^8.2.2",
     "copy-webpack-plugin": "^11.0.0",
     "css-loader": "^6.7.1",
+    "rimraf": "^6.0.1",
     "style-loader": "^3.3.1",
     "ts-loader": "^9.4.0",
     "ts-node": "^10.9.2",

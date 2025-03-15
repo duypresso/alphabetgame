@@ -4,6 +4,10 @@ const { ipcRenderer } = window.require('electron');
 
 export class MainMenuScene extends Phaser.Scene {
     private startButton: Phaser.GameObjects.Container;
+    private practiceButton: Phaser.GameObjects.Container;
+    private title: Phaser.GameObjects.Text;
+    private bg: Phaser.GameObjects.Graphics;
+    private bgMusic: Phaser.Sound.BaseSound;
 
     constructor() {
         super({ key: 'MainMenu' });
@@ -11,14 +15,26 @@ export class MainMenuScene extends Phaser.Scene {
         this.clearCache();
     }
 
+    preload() {
+        // Load audio file
+        this.load.setBaseURL(window.location.href.replace(/\/[^/]*$/, '/'));
+        this.load.audio('menuMusic', 'assets/audio/mainmenu.mp3');
+    }
+
     create() {
+        // Start background music
+        this.bgMusic = this.sound.add('menuMusic', {
+            volume: 0.5,
+            loop: true
+        });
+        this.bgMusic.play();
+
         // Create background gradient
-        const bg = this.add.graphics();
-        bg.fillGradientStyle(0xf0f7ff, 0xf0f7ff, 0xe6f0ff, 0xe6f0ff, 1);
-        bg.fillRect(0, 0, 1024, 768);
+        this.bg = this.add.graphics();
+        this.updateBackground();
 
         // Add title with shadow
-        const title = this.add.text(512, 200, '🎯 Alphabet Game 🎯', {
+        this.title = this.add.text(512, 200, '🎯 Alphabet Game 🎯', {
             fontSize: '64px',
             fontFamily: 'Comic Sans MS',
             color: '#4A4A4A',
@@ -35,7 +51,7 @@ export class MainMenuScene extends Phaser.Scene {
 
         // Create floating animation for title
         this.tweens.add({
-            targets: title,
+            targets: this.title,
             y: '+=10',
             duration: 2000,
             yoyo: true,
@@ -43,19 +59,23 @@ export class MainMenuScene extends Phaser.Scene {
             ease: 'Sine.inOut'
         });
 
-        // Create start button container
-        this.startButton = this.add.container(512, 400);
+        // Calculate vertical center and spacing
+        const centerY = this.cameras.main.height / 2;
+        const buttonSpacing = 80; // Space between buttons
+
+        // Create start button container at center minus half spacing
+        this.startButton = this.add.container(512, centerY - buttonSpacing/2);
 
         // Button background with gradient
-        const buttonBg = this.add.graphics();
-        buttonBg.fillStyle(0x4CAF50);
-        buttonBg.fillRoundedRect(-100, -30, 200, 60, 15);
+        const startButtonBg = this.add.graphics();
+        startButtonBg.fillStyle(0x4CAF50);
+        startButtonBg.fillRoundedRect(-100, -30, 200, 60, 15);
 
         // Add glow effect
-        const glow = this.add.circle(0, 0, 120, 0x4CAF50, 0.2);
+        const startGlow = this.add.circle(0, 0, 120, 0x4CAF50, 0.2);
         
         // Button text
-        const buttonText = this.add.text(0, 0, 'Start Game!', {
+        const startButtonText = this.add.text(0, 0, 'Start Game!', {
             fontSize: '32px',
             fontFamily: 'Comic Sans MS',
             color: '#ffffff',
@@ -64,22 +84,45 @@ export class MainMenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // Add everything to button container
-        this.startButton.add([glow, buttonBg, buttonText]);
+        this.startButton.add([startGlow, startButtonBg, startButtonText]);
 
-        // Make button interactive
-        buttonBg.setInteractive(new Phaser.Geom.Rectangle(-100, -30, 200, 60), 
+        // Create practice button container at center plus half spacing
+        this.practiceButton = this.add.container(512, centerY + buttonSpacing/2);
+
+        // Practice button background with gradient
+        const practiceButtonBg = this.add.graphics();
+        practiceButtonBg.fillStyle(0x2196F3);
+        practiceButtonBg.fillRoundedRect(-100, -30, 200, 60, 15);
+
+        // Add glow effect
+        const practiceGlow = this.add.circle(0, 0, 120, 0x2196F3, 0.2);
+        
+        // Practice button text
+        const practiceButtonText = this.add.text(0, 0, 'Practice Mode', {
+            fontSize: '32px',
+            fontFamily: 'Comic Sans MS',
+            color: '#ffffff',
+            stroke: '#1976D2',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+
+        // Add everything to practice button container
+        this.practiceButton.add([practiceGlow, practiceButtonBg, practiceButtonText]);
+
+        // Make start button interactive
+        startButtonBg.setInteractive(new Phaser.Geom.Rectangle(-100, -30, 200, 60), 
             Phaser.Geom.Rectangle.Contains)
             .on('pointerover', () => {
-                buttonBg.clear();
-                buttonBg.fillStyle(0x45a049);
-                buttonBg.fillRoundedRect(-100, -30, 200, 60, 15);
+                startButtonBg.clear();
+                startButtonBg.fillStyle(0x45a049);
+                startButtonBg.fillRoundedRect(-100, -30, 200, 60, 15);
                 this.startButton.setScale(1.05);
                 this.game.canvas.style.cursor = 'pointer';
             })
             .on('pointerout', () => {
-                buttonBg.clear();
-                buttonBg.fillStyle(0x4CAF50);
-                buttonBg.fillRoundedRect(-100, -30, 200, 60, 15);
+                startButtonBg.clear();
+                startButtonBg.fillStyle(0x4CAF50);
+                startButtonBg.fillRoundedRect(-100, -30, 200, 60, 15);
                 this.startButton.setScale(1);
                 this.game.canvas.style.cursor = 'default';
             })
@@ -90,15 +133,47 @@ export class MainMenuScene extends Phaser.Scene {
                 // Add particle effect
                 this.addClickParticles();
                 
-                // Transition to game scene
+                // Stop music and transition to game scene
+                this.stopMusic();
                 this.time.delayedCall(500, () => {
                     this.scene.start('AlphabetScene');
                 });
             });
 
-        // Add pulse animation to glow
+        // Make practice button interactive
+        practiceButtonBg.setInteractive(new Phaser.Geom.Rectangle(-100, -30, 200, 60), 
+            Phaser.Geom.Rectangle.Contains)
+            .on('pointerover', () => {
+                practiceButtonBg.clear();
+                practiceButtonBg.fillStyle(0x1976D2);
+                practiceButtonBg.fillRoundedRect(-100, -30, 200, 60, 15);
+                this.practiceButton.setScale(1.05);
+                this.game.canvas.style.cursor = 'pointer';
+            })
+            .on('pointerout', () => {
+                practiceButtonBg.clear();
+                practiceButtonBg.fillStyle(0x2196F3);
+                practiceButtonBg.fillRoundedRect(-100, -30, 200, 60, 15);
+                this.practiceButton.setScale(1);
+                this.game.canvas.style.cursor = 'default';
+            })
+            .on('pointerdown', () => {
+                // Add click effect
+                this.practiceButton.setScale(0.95);
+                
+                // Add particle effect
+                this.addClickParticles();
+                
+                // Stop music and transition to practice mode scene
+                this.stopMusic();
+                this.time.delayedCall(500, () => {
+                    this.scene.start('PracticeMode');
+                });
+            });
+
+        // Add pulse animation to glows
         this.tweens.add({
-            targets: glow,
+            targets: [startGlow, practiceGlow],
             scale: 1.2,
             alpha: 0.1,
             duration: 1500,
@@ -109,6 +184,43 @@ export class MainMenuScene extends Phaser.Scene {
 
         // Add some decorative stars
         this.addDecorations();
+
+        // Ensure we're in fullscreen mode
+        if (!document.fullscreenElement) {
+            this.scale.startFullscreen();
+        }
+    }
+
+    handleResize(width: number, height: number) {
+        // Update background
+        this.updateBackground();
+
+        // Update title position
+        if (this.title) {
+            this.title.setPosition(width / 2, height * 0.25);
+        }
+
+        // Calculate new vertical center and update button positions
+        const centerY = height / 2;
+        const buttonSpacing = 80;
+
+        // Update start button position
+        if (this.startButton) {
+            this.startButton.setPosition(width / 2, centerY - buttonSpacing/2);
+        }
+
+        // Update practice button position
+        if (this.practiceButton) {
+            this.practiceButton.setPosition(width / 2, centerY + buttonSpacing/2);
+        }
+    }
+
+    private updateBackground() {
+        if (this.bg) {
+            this.bg.clear();
+            this.bg.fillGradientStyle(0xf0f7ff, 0xf0f7ff, 0xe6f0ff, 0xe6f0ff, 1);
+            this.bg.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
+        }
     }
 
     private async clearCache() {
@@ -152,6 +264,12 @@ export class MainMenuScene extends Phaser.Scene {
                 repeat: -1,
                 ease: 'Sine.inOut'
             });
+        }
+    }
+
+    private stopMusic() {
+        if (this.bgMusic) {
+            this.bgMusic.stop();
         }
     }
 }

@@ -21,10 +21,39 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
-    }
+    },
+    // Frameless window settings
+    frame: false,
+    transparent: false,
+    backgroundColor: '#f0f7ff',
+    title: '🎯 Alphabet Learning Game',
+    icon: path.join(__dirname, '../assets/icon.png'),
+    fullscreen: true, // Start in fullscreen
+    kiosk: true // Prevent leaving fullscreen
   });
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+
+  // Handle window controls
+  ipcMain.on('window-minimize', () => {
+    // Disabled in fullscreen mode
+  });
+
+  ipcMain.on('window-maximize', () => {
+    // Always keep fullscreen
+    if (!mainWindow.isFullScreen()) {
+      mainWindow.setFullScreen(true);
+    }
+  });
+
+  ipcMain.on('window-close', () => {
+    mainWindow.close();
+  });
+
+  // Prevent leaving fullscreen
+  mainWindow.on('leave-full-screen', () => {
+    mainWindow.setFullScreen(true);
+  });
 }
 
 app.whenReady().then(async () => {

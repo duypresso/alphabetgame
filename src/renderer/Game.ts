@@ -11,15 +11,15 @@ export class AlphabetScene extends Phaser.Scene {
   private eggs: Phaser.GameObjects.Sprite[] = [];
   private letters: string[] = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   private currentIndex: number = 0;
-  private debugText: Phaser.GameObjects.Text;
-  private particleManager: Phaser.GameObjects.Particles.ParticleEmitterManager;
+  private debugText!: Phaser.GameObjects.Text;
+  private particleManager!: Phaser.GameObjects.Particles.ParticleEmitter;
   private warningText: Phaser.GameObjects.Text | null = null;
   private warningContainer: Phaser.GameObjects.Container | null = null;
-  private progressBar: Phaser.GameObjects.Container;
-  private confettiEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
-  private fireworksEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
-  private starsEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
-  private timelineContainer: Phaser.GameObjects.Container;
+  private progressBar!: Phaser.GameObjects.Container;
+  private confettiEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private fireworksEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private starsEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private timelineContainer!: Phaser.GameObjects.Container;
   private currentWordImage: Phaser.GameObjects.Image | null = null;
   private wordContainer: Phaser.GameObjects.Container | null = null;
   private wordsForLetters: { [key: string]: string[] } = {
@@ -38,6 +38,7 @@ export class AlphabetScene extends Phaser.Scene {
   private wordImage?: Phaser.GameObjects.Image;
   private screenWidth: number = 0;
   private screenHeight: number = 0;
+  private bgMusic: Phaser.Sound.BaseSound;
 
   constructor() {
     super({ key: 'AlphabetScene' });
@@ -51,6 +52,9 @@ export class AlphabetScene extends Phaser.Scene {
       this.load.image('egg', 'assets/egg.png');
       this.load.image('broken_egg', 'assets/broken_egg.png');
       this.load.image('particle', 'assets/particle.png');
+      
+      // Load background music
+      this.load.audio('gameplayMusic', 'assets/audio/gameplay.mp3');
 
       // Load word images for each letter from backend
       for (const letter of this.letters) {
@@ -86,7 +90,7 @@ export class AlphabetScene extends Phaser.Scene {
   private onLoadComplete() {
     console.log('All assets loaded successfully');
     // Initialize particle system
-    this.particleManager = this.add.particles('particle');
+    this.particleManager = this.add.particles(0, 0, 'particle');
   }
 
   private onLoadError(file: Phaser.Loader.File) {
@@ -94,6 +98,13 @@ export class AlphabetScene extends Phaser.Scene {
   }
 
   create() {
+    // Start background music
+    this.bgMusic = this.sound.add('gameplayMusic', {
+        volume: 0.5,
+        loop: true
+    });
+    this.bgMusic.play();
+
     // Get current screen dimensions
     const baseWidth = 1024;
     const baseHeight = 768;
@@ -102,36 +113,108 @@ export class AlphabetScene extends Phaser.Scene {
       this.cameras.main.height / baseHeight
     );
 
-    // Calculate grid dimensions based on screen size
-    const gridConfig = {
-      cols: 7,
-      rows: 4,
-      spacing: 130 * scale,
-      startX: (this.cameras.main.width - (6 * 130 * scale)) / 2,
-      startY: this.cameras.main.height * 0.2,
-      eggScale: 0.85 * scale
-    };
-
     // Create background
     const bg = this.add.graphics()
       .setName('background');
     bg.fillGradientStyle(0xf0f7ff, 0xf0f7ff, 0xe6f0ff, 0xe6f0ff, 1);
     bg.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
 
-    // Create eggs grid with scaled positions
+    // Add back to menu button in top-left corner with padding based on screen size
+    const padding = Math.max(20 * scale, 15);
+    const backButton = this.add.container(padding, padding).setName('backButton');
+    const backButtonBg = this.add.graphics();
+    backButtonBg.fillStyle(0x4CAF50);
+    const buttonWidth = Math.min(120 * scale, 140);
+    const buttonHeight = Math.min(50 * scale, 60);
+    backButtonBg.fillRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, 15);
+    const backButtonText = this.add.text(0, 0, '← Menu', {
+        fontSize: `${Math.max(24 * scale, 18)}px`,
+        fontFamily: 'Comic Sans MS',
+        color: '#ffffff'
+    }).setOrigin(0.5);
+    backButton.add([backButtonBg, backButtonText]);
+
+    // Make back button interactive with scaled hitbox
+    backButtonBg.setInteractive(new Phaser.Geom.Rectangle(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight), 
+        Phaser.Geom.Rectangle.Contains)
+        .on('pointerover', () => {
+            backButtonBg.clear();
+            backButtonBg.fillStyle(0x45a049);
+            backButtonBg.fillRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, 15);
+            this.game.canvas.style.cursor = 'pointer';
+        })
+        .on('pointerout', () => {
+            backButtonBg.clear();
+            backButtonBg.fillStyle(0x4CAF50);
+            backButtonBg.fillRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, 15);
+            this.game.canvas.style.cursor = 'default';
+        })
+        .on('pointerdown', () => {
+            this.tweens.add({
+                targets: backButton,
+                scale: 0.95,
+                duration: 100,
+                yoyo: true,
+                onComplete: () => {
+                    this.stopMusic();
+                    this.scene.start('MainMenu');
+                }
+            });
+        });
+
+    // Add scaled title with responsive positioning
+    const title = this.add.text(
+      this.cameras.main.width / 2,
+      this.cameras.main.height * 0.08, // Adjusted position for better spacing
+      '🥚 Break the Eggs! 🥚',
+      {
+        fontSize: `${Math.max(48 * scale, 32)}px`,
+        fontFamily: 'Comic Sans MS',
+        color: '#4A4A4A',
+        stroke: '#ffffff',
+        strokeThickness: Math.max(6 * scale, 3),
+        shadow: {
+          color: '#000000',
+          fill: true,
+          offsetX: Math.max(2 * scale, 1),
+          offsetY: Math.max(2 * scale, 1),
+          blur: 8
+        }
+      }
+    ).setOrigin(0.5)
+      .setName('title');
+
+    // Calculate grid dimensions with responsive spacing
+    const gridConfig = {
+      cols: 7,
+      rows: 4,
+      eggBaseSize: Math.min(100 * scale, 120), // Cap maximum egg size
+      spacing: Math.min(130 * scale, 150), // Increased maximum spacing
+      eggScale: Math.min(0.7 * scale, 0.8) // Slightly increased maximum scale
+    };
+
+    // Calculate total grid width and height
+    const totalGridWidth = gridConfig.spacing * (gridConfig.cols - 1);
+    const totalGridHeight = gridConfig.spacing * (gridConfig.rows - 1);
+
+    // Calculate starting position to center the grid with better vertical spacing
+    const startX = (this.cameras.main.width - totalGridWidth) / 2;
+    const startY = this.cameras.main.height * 0.15; // Adjusted for better vertical distribution
+
+    // Create eggs grid with consistent sizes
     for (let i = 0; i < this.letters.length; i++) {
       const row = Math.floor(i / gridConfig.cols);
       const col = i % gridConfig.cols;
       
-      const x = gridConfig.startX + col * gridConfig.spacing;
-      const y = gridConfig.startY + row * gridConfig.spacing;
+      const x = startX + col * gridConfig.spacing;
+      const y = startY + row * gridConfig.spacing;
 
-      // Add scaled shadow
+      // Add scaled shadow with consistent size
       this.add.ellipse(
         x + 4 * scale,
         y + 4 * scale,
-        85 * scale,
-        100 * scale,
+        gridConfig.eggBaseSize * gridConfig.eggScale,
+        gridConfig.eggBaseSize * 1.2 * gridConfig.eggScale,
         0x000000,
         0.15
       );
@@ -150,39 +233,17 @@ export class AlphabetScene extends Phaser.Scene {
 
       this.eggs.push(egg);
 
-      // Add number indicator instead of letter
+      // Add number indicator with scaled font size
       const numberText = this.add.text(x, y + 5, `${i + 1}`, {
-        fontSize: '24px',
+        fontSize: `${Math.max(24 * scale, 16)}px`, // Minimum font size of 16px
         fontFamily: 'Comic Sans MS',
         color: '#666666',
         stroke: '#ffffff',
-        strokeThickness: 1
+        strokeThickness: Math.max(1 * scale, 0.5)
       }).setOrigin(0.5).setAlpha(0.5);
 
       egg.setData('numberText', numberText);
     }
-
-    // Add scaled title
-    const title = this.add.text(
-      this.cameras.main.width / 2,
-      this.cameras.main.height * 0.1,
-      '🥚 Break the Eggs! 🥚',
-      {
-        fontSize: `${48 * scale}px`,
-        fontFamily: 'Comic Sans MS',
-        color: '#4A4A4A',
-        stroke: '#ffffff',
-        strokeThickness: 6 * scale,
-        shadow: {
-          color: '#000000',
-          fill: true,
-          offsetX: 2 * scale,
-          offsetY: 2 * scale,
-          blur: 8
-        }
-      }
-    ).setOrigin(0.5)
-      .setName('title');
 
     // Add progress bar at bottom
     this.createProgressBar(scale);
@@ -198,55 +259,202 @@ export class AlphabetScene extends Phaser.Scene {
   }
 
   private handleResize(gameSize: Phaser.Structs.Size) {
-    const width = gameSize.width;
-    const height = gameSize.height;
-    const scale = Math.min(width / 1024, height / 768);
+    const newWidth = gameSize.width;
+    const newHeight = gameSize.height;
+    const scale = Math.min(newWidth / 1024, newHeight / 768);
 
-    this.cameras.resize(width, height);
-    this.updateLayout(scale);
-  }
-
-  private updateLayout(scale: number) {
-    // Update background
-    const bg = this.children.getByName('background');
-    if (bg) {
-      bg.setSize(this.screenWidth, this.screenHeight);
+    // Update back button with responsive sizing
+    const backButton = this.children.getByName('backButton') as Phaser.GameObjects.Container;
+    if (backButton) {
+        const padding = Math.max(20 * scale, 15);
+        backButton.setPosition(padding, padding);
+        const backButtonBg = backButton.list[0] as Phaser.GameObjects.Graphics;
+        const backButtonText = backButton.list[1] as Phaser.GameObjects.Text;
+        if (backButtonBg) {
+            backButtonBg.clear();
+            const buttonWidth = Math.min(120 * scale, 140);
+            const buttonHeight = Math.min(50 * scale, 60);
+            backButtonBg.fillStyle(0x4CAF50);
+            backButtonBg.fillRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, 15);
+        }
+        if (backButtonText) {
+            backButtonText.setFontSize(Math.max(24 * scale, 18));
+        }
     }
 
-    // Update title
-    const title = this.children.getByName('title');
+    // Update title with responsive positioning
+    const title = this.children.getByName('title') as Phaser.GameObjects.Text;
     if (title) {
-      title.setPosition(this.cameras.main.width / 2, this.cameras.main.height * 0.1);
-      title.setScale(scale);
+        title.setPosition(newWidth / 2, newHeight * 0.08);
+        title.setFontSize(Math.max(48 * scale, 32));
+        title.setStroke('#ffffff', Math.max(6 * scale, 3));
+        title.setShadow(
+            Math.max(2 * scale, 1),
+            Math.max(2 * scale, 1),
+            '#000000',
+            8,
+            true
+        );
     }
 
-    // Update progress bar position
-    if (this.timelineContainer) {
-      this.timelineContainer.setPosition(
-        this.screenWidth / 2,
-        this.screenHeight * 0.9
-      );
+    // Update background
+    const bg = this.children.getByName('background') as Phaser.GameObjects.Graphics;
+    if (bg) {
+        bg.clear();
+        bg.fillGradientStyle(0xf0f7ff, 0xf0f7ff, 0xe6f0ff, 0xe6f0ff, 1);
+        bg.fillRect(0, 0, newWidth, newHeight);
     }
 
-    // Update eggs positions
-    const spacing = 130 * scale;
-    const startX = (this.cameras.main.width - (6 * spacing)) / 2;
-    const startY = this.cameras.main.height * 0.2;
+    // Calculate new grid dimensions
+    const gridConfig = {
+        cols: 7,
+        rows: 4,
+        eggBaseSize: Math.min(100 * scale, 120),
+        spacing: Math.min(130 * scale, 150),
+        eggScale: Math.min(0.7 * scale, 0.8)
+    };
 
+    // Calculate total grid width and height
+    const totalGridWidth = gridConfig.spacing * (gridConfig.cols - 1);
+    const totalGridHeight = gridConfig.spacing * (gridConfig.rows - 1);
+
+    // Calculate new starting position to center the grid
+    const startX = (newWidth - totalGridWidth) / 2;
+    const startY = newHeight * 0.15;
+
+    // Update eggs grid
     this.eggs.forEach((egg, i) => {
-      const row = Math.floor(i / 7);
-      const col = i % 7;
-      const x = startX + col * spacing;
-      const y = startY + row * spacing;
+        const row = Math.floor(i / gridConfig.cols);
+        const col = i % gridConfig.cols;
+        
+        const x = startX + col * gridConfig.spacing;
+        const y = startY + row * gridConfig.spacing;
 
-      egg.setPosition(x, y).setScale(0.85 * scale);
+        // Update egg position and scale
+        egg.setPosition(x, y).setScale(gridConfig.eggScale);
 
-      // Update associated elements (letter display, etc.)
-      const letterContainer = egg.getData('letterContainer');
-      if (letterContainer) {
-        letterContainer.setPosition(x, y).setScale(scale);
-      }
+        // Update number text
+        const numberText = egg.getData('numberText') as Phaser.GameObjects.Text;
+        if (numberText) {
+            numberText.setPosition(x, y + 5);
+            numberText.setFontSize(Math.max(24 * scale, 16));
+            numberText.setStrokeThickness(Math.max(1 * scale, 0.5));
+        }
+
+        // Update letter container if exists
+        const letterContainer = egg.getData('letterContainer') as Phaser.GameObjects.Container;
+        if (letterContainer) {
+            letterContainer.setPosition(x, y);
+            const letterText = letterContainer.list[1] as Phaser.GameObjects.Text;
+            if (letterText) {
+                letterText.setFontSize(Math.max(52 * scale, 32));
+                letterText.setStrokeThickness(Math.max(6 * scale, 3));
+            }
+        }
     });
+
+    // Update progress bar
+    if (this.timelineContainer) {
+        const barWidth = Math.min(800 * scale, 800);
+        const barHeight = 30 * scale;
+        const y = newHeight - 50 * scale;
+
+        this.timelineContainer.setPosition(newWidth / 2, y);
+
+        // Update background bar
+        const bg = this.timelineContainer.list[0] as Phaser.GameObjects.Rectangle;
+        if (bg) {
+            bg.setSize(barWidth, barHeight);
+            bg.setStrokeStyle(2 * scale, 0xcccccc);
+        }
+
+        // Update progress fill
+        const fill = this.timelineContainer.getData('fill') as Phaser.GameObjects.Rectangle;
+        if (fill) {
+            fill.setSize(fill.width, barHeight);
+        }
+
+        // Update milestone markers
+        const milestones = [0.25, 0.5, 0.75, 1];
+        milestones.forEach((milestone, index) => {
+            const x = -barWidth/2 + barWidth * milestone;
+            const marker = this.timelineContainer.list[index * 2 + 2] as Phaser.GameObjects.Ellipse;
+            const label = this.timelineContainer.list[index * 2 + 3] as Phaser.GameObjects.Text;
+            
+            if (marker) {
+                marker.setPosition(x, 0);
+                marker.setRadius(8 * scale);
+                marker.setStrokeStyle(2 * scale, 0xffffff);
+            }
+            
+            if (label) {
+                label.setPosition(x, -20 * scale);
+                label.setFontSize(16 * scale);
+            }
+        });
+
+        // Update letter indicator
+        const letterIndicator = this.timelineContainer.getData('indicator') as Phaser.GameObjects.Container;
+        if (letterIndicator) {
+            letterIndicator.setY(15 * scale);
+            const bubble = letterIndicator.list[0] as Phaser.GameObjects.Ellipse;
+            const letterText = letterIndicator.list[1] as Phaser.GameObjects.Text;
+            
+            if (bubble) bubble.setRadius(15 * scale);
+            if (letterText) letterText.setFontSize(18 * scale);
+        }
+    }
+
+    // Update word container if exists
+    if (this.wordContainer) {
+        this.wordContainer.setPosition(newWidth / 2, newHeight / 2);
+        
+        // Update overlay
+        const overlay = this.wordContainer.list[0] as Phaser.GameObjects.Rectangle;
+        if (overlay) {
+            overlay.setSize(newWidth, newHeight);
+        }
+
+        // Update display box
+        const displayWidth = 600 * scale;
+        const displayHeight = 400 * scale;
+        const bg = this.wordContainer.list[1] as Phaser.GameObjects.Rectangle;
+        if (bg) {
+            bg.setSize(displayWidth, displayHeight);
+            bg.setStrokeStyle(4 * scale, 0x4CAF50);
+        }
+
+        // Update word text
+        const wordText = this.wordContainer.list[3] as Phaser.GameObjects.Text;
+        if (wordText) {
+            wordText.setFontSize(48 * scale);
+            wordText.setStrokeThickness(4 * scale);
+        }
+
+        // Update speaker icon
+        const speakerBg = this.wordContainer.list[4] as Phaser.GameObjects.Ellipse;
+        const speakerIcon = this.wordContainer.list[5] as Phaser.GameObjects.Text;
+        if (speakerBg) {
+            speakerBg.setRadius(25 * scale);
+            speakerBg.setPosition(wordText.x + wordText.width/2 + 40 * scale, 80 * scale);
+        }
+        if (speakerIcon) {
+            speakerIcon.setFontSize(32 * scale);
+            speakerIcon.setPosition(speakerBg.x, speakerBg.y);
+        }
+
+        // Update close button
+        const closeButton = this.wordContainer.list[6] as Phaser.GameObjects.Ellipse;
+        const closeX = this.wordContainer.list[7] as Phaser.GameObjects.Text;
+        if (closeButton) {
+            closeButton.setRadius(20 * scale);
+            closeButton.setPosition(displayWidth/2 - 30 * scale, -displayHeight/2 + 30 * scale);
+        }
+        if (closeX) {
+            closeX.setFontSize(32 * scale);
+            closeX.setPosition(closeButton.x, closeButton.y);
+        }
+    }
   }
 
   private setupEgg(egg: Phaser.GameObjects.Sprite, index: number) {
@@ -254,12 +462,12 @@ export class AlphabetScene extends Phaser.Scene {
     egg.setData('index', index);
     egg.setData('broken', false);
 
-    // Add hover effects
+    // Add hover effects with consistent scaling
     egg.on('pointerover', () => {
       if (index === this.currentIndex) {
         this.tweens.add({
           targets: egg,
-          scale: egg.scale * 1.1,
+          scale: egg.scale * 1.05,  // Reduced hover scale for consistency
           duration: 200,
           ease: 'Back.out'
         });
@@ -270,7 +478,7 @@ export class AlphabetScene extends Phaser.Scene {
     egg.on('pointerout', () => {
       this.tweens.add({
         targets: egg,
-        scale: egg.scale / 1.1,
+        scale: 0.7,  // Return to base scale
         duration: 200,
         ease: 'Back.out'
       });
@@ -278,12 +486,15 @@ export class AlphabetScene extends Phaser.Scene {
     });
 
     egg.on('pointerdown', () => {
+      // Check if the egg is actually broken by looking at its data
+      const isBroken = egg.getData('broken');
+      
       if (index === this.currentIndex) {
         this.breakEgg(egg);
       } else if (index > this.currentIndex) {
         this.showError(egg);
-      } else {
-        // Already broken egg - do nothing
+      } else if (isBroken) {
+        // Only show "Already broken" message if the egg is actually broken
         const alreadyBrokenEffect = this.add.text(
           egg.x,
           egg.y - 40,
@@ -314,51 +525,113 @@ export class AlphabetScene extends Phaser.Scene {
       this.warningContainer.destroy();
     }
 
-    // Create warning container
-    this.warningContainer = this.add.container(400, 300);
+    // Get screen dimensions and scale
+    const screenWidth = this.cameras.main.width;
+    const screenHeight = this.cameras.main.height;
+    const scale = Math.min(screenWidth / 1024, screenHeight / 768);
 
-    // Add dark overlay
-    const overlay = this.add.rectangle(0, 0, 800, 600, 0x000000, 0.3)
-      .setOrigin(0.5)
+    // Get screen center coordinates
+    const centerX = screenWidth / 2;
+    const centerY = screenHeight / 2;
+
+    // Create warning container at screen center
+    this.warningContainer = this.add.container(centerX, centerY);
+
+    // Add dark overlay covering the entire screen
+    const overlay = this.add.rectangle(
+        0,
+        0,
+        screenWidth,
+        screenHeight,
+        0x000000,
+        0.3
+    ).setOrigin(0.5)
       .setInteractive();
-    this.warningContainer.add(overlay);
+    
+    // Create warning box with proper dimensions
+    const boxWidth = Math.min(500 * scale, 500);
+    const boxHeight = Math.min(300 * scale, 300);
+    
+    const warningBox = this.add.rectangle(0, 0, boxWidth, boxHeight, 0xff0000)
+        .setOrigin(0.5);
+    const warningBg = this.add.rectangle(0, 0, boxWidth - 4 * scale, boxHeight - 4 * scale, 0xffffff)
+        .setOrigin(0.5);
 
-    // Create warning box
-    const warningBox = this.add.rectangle(0, 0, 400, 200, 0xff0000)
-      .setOrigin(0.5);
-    const warningBg = this.add.rectangle(0, 0, 396, 196, 0xffffff)
-      .setOrigin(0.5);
-    this.warningContainer.add([warningBox, warningBg]);
-
-    // Add warning icon and text
-    const warningIcon = this.add.text(-150, -50, '⚠️', { fontSize: '40px' })
-      .setOrigin(0.5);
-    const warningText = this.add.text(0, -50, 'Oops!', {
-      fontSize: '32px',
-      fontFamily: 'Comic Sans MS',
-      color: '#ff0000',
-      fontStyle: 'bold'
+    // Add warning icon and text with proper positioning
+    const warningIcon = this.add.text(-boxWidth/4, -boxHeight/4, '⚠️', { 
+        fontSize: `${40 * scale}px` 
+    }).setOrigin(0.5);
+    
+    const warningText = this.add.text(0, -boxHeight/4, 'Oops!', {
+        fontSize: `${32 * scale}px`,
+        fontFamily: 'Comic Sans MS',
+        color: '#ff0000',
+        fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    const messageText = this.add.text(0, 10, 
-      `You need to break egg ${this.currentIndex + 1} first!`, {
-      fontSize: '24px',
-      fontFamily: 'Comic Sans MS',
-      color: '#000000',
-      align: 'center',
-      wordWrap: { width: 300 }
+    const messageText = this.add.text(0, 0, 
+        `You need to break egg ${this.currentIndex + 1} first!`, {
+        fontSize: `${24 * scale}px`,
+        fontFamily: 'Comic Sans MS',
+        color: '#000000',
+        align: 'center',
+        wordWrap: { width: boxWidth * 0.8 }
     }).setOrigin(0.5);
 
-    // Add OK button
-    const button = this.add.rectangle(0, 60, 120, 40, 0x4CAF50)
-      .setInteractive({ useHandCursor: true });
-    const buttonText = this.add.text(0, 60, 'OK!', {
-      fontSize: '24px',
-      fontFamily: 'Comic Sans MS',
-      color: '#ffffff'
+    // Add OK button with proper positioning
+    const button = this.add.rectangle(0, boxHeight/4, 120 * scale, 40 * scale, 0x4CAF50)
+        .setInteractive({ useHandCursor: true });
+    const buttonText = this.add.text(0, boxHeight/4, 'OK!', {
+        fontSize: `${24 * scale}px`,
+        fontFamily: 'Comic Sans MS',
+        color: '#ffffff'
     }).setOrigin(0.5);
 
-    this.warningContainer.add([warningIcon, warningText, messageText, button, buttonText]);
+    // Add everything to the container
+    this.warningContainer.add([
+        overlay,
+        warningBox,
+        warningBg,
+        warningIcon,
+        warningText,
+        messageText,
+        button,
+        buttonText
+    ]);
+
+    // Add resize handler for the warning container
+    const resizeHandler = () => {
+      const newWidth = this.cameras.main.width;
+      const newHeight = this.cameras.main.height;
+      const newScale = Math.min(newWidth / 1024, newHeight / 768);
+
+      // Update overlay
+      overlay.setPosition(0, 0)
+            .setSize(newWidth, newHeight);
+
+      // Update container position
+      this.warningContainer?.setPosition(newWidth / 2, newHeight / 2);
+
+      // Update box size
+      const newBoxWidth = Math.min(500 * newScale, 500);
+      const newBoxHeight = Math.min(300 * newScale, 300);
+      warningBox.setSize(newBoxWidth, newBoxHeight);
+      warningBg.setSize(newBoxWidth - 4 * newScale, newBoxHeight - 4 * newScale);
+
+      // Update text sizes
+      warningIcon.setFontSize(40 * newScale);
+      warningText.setFontSize(32 * newScale);
+      messageText.setFontSize(24 * newScale);
+      buttonText.setFontSize(24 * newScale);
+
+      // Update button size and position
+      button.setSize(120 * newScale, 40 * newScale);
+      button.setY(newBoxHeight/4);
+      buttonText.setY(newBoxHeight/4);
+    };
+
+    // Add resize listener
+    this.scale.on('resize', resizeHandler);
 
     // Add effects
     this.cameras.main.shake(200, 0.005);
@@ -367,88 +640,76 @@ export class AlphabetScene extends Phaser.Scene {
     // Highlight correct egg
     const currentEgg = this.eggs[this.currentIndex];
     if (currentEgg) {
-      const spotlight = this.add.circle(currentEgg.x, currentEgg.y, 40, 0xffff00, 0.3);
-      this.tweens.add({
-        targets: spotlight,
-        scale: 1.2,
-        alpha: 0,
-        duration: 1000,
-        repeat: -1
-      });
-      this.warningContainer.add(spotlight);
+        const spotlight = this.add.circle(
+            currentEgg.x - centerX,
+            currentEgg.y - centerY,
+            40 * scale,
+            0xffff00,
+            0.3
+        );
+        this.tweens.add({
+            targets: spotlight,
+            scale: 1.2,
+            alpha: 0,
+            duration: 1000,
+            repeat: -1
+        });
+        this.warningContainer.add(spotlight);
     }
 
     // Animate warning container entrance
     this.warningContainer.setScale(0);
     this.tweens.add({
-      targets: this.warningContainer,
-      scale: 1,
-      duration: 300,
-      ease: 'Back.out'
+        targets: this.warningContainer,
+        scale: 1,
+        duration: 300,
+        ease: 'Back.out'
     });
 
     // Handle button click
     button.on('pointerdown', () => {
-      this.tweens.add({
-        targets: this.warningContainer,
-        scale: 0,
-        duration: 200,
-        ease: 'Back.in',
-        onComplete: () => {
-          if (this.warningContainer) {
-            this.warningContainer.destroy();
-            this.warningContainer = null;
-          }
-          egg.clearTint();
-        }
-      });
+        this.tweens.add({
+            targets: this.warningContainer,
+            scale: 0,
+            duration: 200,
+            ease: 'Back.in',
+            onComplete: () => {
+                if (this.warningContainer) {
+                    this.warningContainer.destroy();
+                    this.warningContainer = null;
+                }
+                egg.clearTint();
+            }
+        });
     });
 
     // Hover effects for button
     button.on('pointerover', () => {
-      button.setFillStyle(0x45a049);
-      this.game.canvas.style.cursor = 'pointer';
+        button.setFillStyle(0x45a049);
+        this.game.canvas.style.cursor = 'pointer';
+        this.tweens.add({
+            targets: [button, buttonText],
+            scale: 1.1,
+            duration: 100
+        });
     });
 
     button.on('pointerout', () => {
-      button.setFillStyle(0x4CAF50);
-      this.game.canvas.style.cursor = 'default';
+        button.setFillStyle(0x4CAF50);
+        this.game.canvas.style.cursor = 'default';
+        this.tweens.add({
+            targets: [button, buttonText],
+            scale: 1.0,
+            duration: 100
+        });
     });
 
     // Auto-dismiss after 3 seconds
     this.time.delayedCall(3000, () => {
-      if (this.warningContainer && this.warningContainer.active) {
-        button.emit('pointerdown');
-      }
+        if (this.warningContainer && this.warningContainer.active) {
+            button.emit('pointerdown');
+        }
     });
-
-    // Add pulsing effect to correct egg
-    if (currentEgg) {
-      const pulseGlow = this.add.circle(currentEgg.x, currentEgg.y, 40, 0xffff00, 0.4);
-      this.tweens.add({
-        targets: pulseGlow,
-        scale: 1.5,
-        alpha: 0,
-        duration: 1000,
-        repeat: 2,
-        onComplete: () => pulseGlow.destroy()
-      });
-    }
-
-    // Highlight next egg number
-    if (currentEgg) {
-      const numberText = currentEgg.getData('numberText');
-      if (numberText) {
-        numberText.setColor('#ff0000');
-        this.tweens.add({
-          targets: numberText,
-          scale: 1.2,
-          duration: 200,
-          yoyo: true,
-          repeat: 2
-        });
-      }
-    }
   }
 
   private async breakEgg(egg: Phaser.GameObjects.Sprite) {
@@ -469,33 +730,91 @@ export class AlphabetScene extends Phaser.Scene {
         numberText.destroy();
       }
 
-      // Create particle effect
-      if (this.particleManager) {
-        const emitter = this.particleManager.createEmitter({
-          speed: { min: 50, max: 100 },
-          scale: { start: 0.1, end: 0 },
-          alpha: { start: 1, end: 0 },
-          lifespan: 800,
-          blendMode: 'ADD'
-        });
+      // Play cracking sound if available
+      // this.sound.play('crack'); // Uncomment if you have a sound asset
 
-        emitter.explode(20, egg.x, egg.y);
-      }
-
-      // Break egg animation
-      this.tweens.add({
+      // Step 1: Add initial shake effect
+      const shakeIntensity = 3;
+      const originalX = egg.x;
+      const originalY = egg.y;
+      const shakeTween = this.tweens.add({
         targets: egg,
-        scaleX: 1.1,
-        scaleY: 0.9,
-        duration: 100,
+        x: { value: () => originalX + Phaser.Math.Between(-shakeIntensity, shakeIntensity) },
+        y: { value: () => originalY + Phaser.Math.Between(-shakeIntensity, shakeIntensity) },
+        duration: 50,
+        repeat: 5,
         yoyo: true,
         onComplete: () => {
-          egg.setTexture('broken_egg');
-          // Only create letter display, don't load word data yet
-          this.createLetterDisplay(egg, letter);
+          // Step 2: Create subtle squash effect
+          this.tweens.add({
+            targets: egg,
+            scaleX: 1.15,
+            scaleY: 0.85,
+            duration: 120,
+            ease: 'Sine.easeInOut',
+            onComplete: () => {
+              // Create first batch of small particles (pre-break)
+              if (this.particleManager) {
+                const emitter = this.particleManager.createEmitter({
+                  speed: { min: 20, max: 40 },
+                  scale: { start: 0.05, end: 0 },
+                  alpha: { start: 1, end: 0 },
+                  lifespan: 400,
+                  blendMode: 'ADD',
+                  tint: 0xFFFFCC
+                });
+                
+                emitter.explode(8, egg.x, egg.y);
+              }
+              
+              // Step 3: Switch to broken egg with "pop" effect
+              this.tweens.add({
+                targets: egg,
+                scaleX: 1.2,
+                scaleY: 0.8,
+                duration: 80,
+                ease: 'Elastic.easeOut',
+                onComplete: () => {
+                  // Switch to broken texture
+                  egg.setTexture('broken_egg');
+                  
+                  // Step 4: Create shell fragment effect (main particles)
+                  if (this.particleManager) {
+                    const shellEmitter = this.particleManager.createEmitter({
+                      speed: { min: 50, max: 150 },
+                      scale: { start: 0.15, end: 0 },
+                      angle: { min: 0, max: 360 },
+                      rotate: { min: 0, max: 360 },
+                      alpha: { start: 1, end: 0 },
+                      lifespan: { min: 600, max: 800 },
+                      tint: [0xFFFFCC, 0xFFEEAA, 0xFFFFFF]
+                    });
+                    
+                    shellEmitter.explode(20, egg.x, egg.y);
+                  }
+                  
+                  // Step 5: Return to normal scale with slight bounce
+                  this.tweens.add({
+                    targets: egg,
+                    scaleX: 1,
+                    scaleY: 1,
+                    duration: 200,
+                    ease: 'Back.easeOut',
+                    onComplete: () => {
+                      // Step 6: Short delay before showing letter
+                      this.time.delayedCall(250, () => {
+                        // Create letter display
+                        this.createLetterDisplay(egg, letter);
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
         }
       });
-
+      
       this.currentIndex++;
       this.updateProgress();
       
@@ -646,46 +965,43 @@ private displayWord() {
         this.wordContainer.destroy();
     }
 
+    // Get the camera dimensions for proper centering
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
+
     // Create new container for word display
-    const scale = Math.min(
-      this.cameras.main.width / 1024,
-      this.cameras.main.height / 768
-    );
+    this.wordContainer = this.add.container(centerX, centerY);
 
-    const wordContainer = this.add.container(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2
-    );
+    // Create semi-transparent overlay covering the entire screen
+    const overlay = this.add.rectangle(
+        0,
+        0,
+        this.cameras.main.width,
+        this.cameras.main.height,
+        0x000000,
+        0.7
+    ).setOrigin(0.5);
 
-    // Scale the word display container
-    wordContainer.setScale(scale);
-
-    const overlayWidth = this.screenWidth;
-    const overlayHeight = this.screenHeight;
-    const displayWidth = Math.min(400, this.screenWidth * 0.8);
-    const displayHeight = Math.min(300, this.screenHeight * 0.8);
-
-    const overlay = this.add.rectangle(0, 0, overlayWidth, overlayHeight, 0x000000, 0.5)
-        .setOrigin(0.5)
-        .setInteractive();
-
+    // Create white background for the word display
+    const displayWidth = 600;
+    const displayHeight = 400;
     const bg = this.add.rectangle(0, 0, displayWidth, displayHeight, 0xffffff)
-        .setStrokeStyle(2, 0x000000);
+        .setStrokeStyle(4, 0x4CAF50)
+        .setOrigin(0.5);
 
     // Add image using the stored key
-    const image = this.add.image(0, -20, this.currentWord.imageKey);
+    const image = this.add.image(0, -50, this.currentWord.imageKey);
     
-    // Scale image to fit
-    const maxWidth = 350;
-    const maxHeight = 200;
-    const scaleImage = Math.min(
-        maxWidth / image.width,
-        maxHeight / image.height
-    );
-    image.setScale(scaleImage);
-    
-    // Add word text
-    const wordText = this.add.text(0, 100, this.currentWord.word.toUpperCase(), {
+    // Scale image to fit while maintaining aspect ratio
+    const maxImageWidth = displayWidth * 0.8;
+    const maxImageHeight = displayHeight * 0.5;
+    const scaleX = maxImageWidth / image.width;
+    const scaleY = maxImageHeight / image.height;
+    const scale = Math.min(scaleX, scaleY);
+    image.setScale(scale);
+
+    // Add word text below the image
+    const wordText = this.add.text(0, 80, this.currentWord.word.toUpperCase(), {
         fontSize: '48px',
         fontFamily: 'Comic Sans MS',
         color: '#000000',
@@ -693,16 +1009,56 @@ private displayWord() {
         strokeThickness: 4
     }).setOrigin(0.5);
 
-    // Add close button with enlarged hit area
-    const closeButton = this.add.circle(180, -130, 20, 0xff0000)
+    // Add speaker icon next to the word
+    const speakerBg = this.add.circle(wordText.x + wordText.width/2 + 40, 80, 25, 0x4CAF50)
         .setInteractive({ useHandCursor: true });
-    const closeX = this.add.text(180, -130, '×', {
+    const speakerIcon = this.add.text(wordText.x + wordText.width/2 + 40, 80, '🔊', {
+        fontSize: '32px'
+    }).setOrigin(0.5);
+
+    // Add hover and click effects for speaker
+    speakerBg.on('pointerover', () => {
+        this.tweens.add({
+            targets: [speakerBg, speakerIcon],
+            scale: 1.1,
+            duration: 100
+        });
+        this.game.canvas.style.cursor = 'pointer';
+    });
+
+    speakerBg.on('pointerout', () => {
+        this.tweens.add({
+            targets: [speakerBg, speakerIcon],
+            scale: 1.0,
+            duration: 100
+        });
+        this.game.canvas.style.cursor = 'default';
+    });
+
+    speakerBg.on('pointerdown', () => {
+        // Visual feedback
+        this.tweens.add({
+            targets: [speakerBg, speakerIcon],
+            scale: 0.9,
+            yoyo: true,
+            duration: 100
+        });
+        
+        // Speak the word
+        this.speakWord(this.currentWord.word);
+    });
+
+    // Add close button in the top-right corner
+    const closeButton = this.add.circle(displayWidth/2 - 30, -displayHeight/2 + 30, 20, 0xff0000)
+        .setInteractive({ useHandCursor: true });
+    const closeX = this.add.text(displayWidth/2 - 30, -displayHeight/2 + 30, '×', {
         fontSize: '32px',
         fontFamily: 'Arial',
         color: '#ffffff'
     }).setOrigin(0.5);
 
-    this.wordContainer.add([image, wordText, closeButton, closeX]);
+    // Add everything to the container
+    this.wordContainer.add([overlay, bg, image, wordText, speakerBg, speakerIcon, closeButton, closeX]);
 
     // Add entrance animation
     this.wordContainer.setScale(0);
@@ -758,14 +1114,33 @@ private displayWord() {
         });
         this.game.canvas.style.cursor = 'default';
     });
+  }
 
-    // Optional: Auto-close after 5 seconds
-    this.time.delayedCall(5000, () => {
-        if (this.wordContainer && this.wordContainer.active) {
-            closeWordDisplay();
-        }
-    });
-}
+  // Add the speech function
+  private speakWord(word: string) {
+    // Create speech synthesis utterance
+    const utterance = new SpeechSynthesisUtterance(word);
+    
+    // Configure the voice
+    utterance.rate = 0.8; // Slightly slower for clarity
+    utterance.pitch = 1;
+    
+    // Get available voices and try to set a child-friendly English voice
+    const voices = window.speechSynthesis.getVoices();
+    const englishVoices = voices.filter(voice => voice.lang.startsWith('en-'));
+    
+    if (englishVoices.length > 0) {
+        // Prefer voices with "child" in the name, otherwise use the first English voice
+        const childVoice = englishVoices.find(voice => 
+            voice.name.toLowerCase().includes('child') ||
+            voice.name.toLowerCase().includes('junior')
+        );
+        utterance.voice = childVoice || englishVoices[0];
+    }
+    
+    // Speak the word
+    window.speechSynthesis.speak(utterance);
+  }
 
   private showLetter(egg: Phaser.GameObjects.Sprite, letter: string) {
     // Remove preview text
@@ -981,7 +1356,44 @@ private displayWord() {
     // Center the word
     wordContainer.setX(-xOffset / 2);
 
-    // Add hover effect
+    // Add speaker icon
+    const speakerBg = this.add.circle(wordContainer.x + xOffset/2 + 30, 60, 20, 0x4CAF50)
+        .setInteractive({ useHandCursor: true });
+    const speakerIcon = this.add.text(wordContainer.x + xOffset/2 + 30, 60, '🔊', {
+        fontSize: '24px'
+    }).setOrigin(0.5);
+
+    // Add hover and click effects for speaker
+    speakerBg.on('pointerover', () => {
+        this.tweens.add({
+            targets: [speakerBg, speakerIcon],
+            scale: 1.1,
+            duration: 100
+        });
+    });
+
+    speakerBg.on('pointerout', () => {
+        this.tweens.add({
+            targets: [speakerBg, speakerIcon],
+            scale: 1.0,
+            duration: 100
+        });
+    });
+
+    speakerBg.on('pointerdown', () => {
+        // Visual feedback
+        this.tweens.add({
+            targets: [speakerBg, speakerIcon],
+            scale: 0.9,
+            yoyo: true,
+            duration: 100
+        });
+        
+        // Speak the word
+        this.speakWord(word);
+    });
+
+    // Add hover effect for the whole card
     card.setInteractive({ useHandCursor: true })
       .on('pointerover', () => {
         this.tweens.add({
@@ -1002,7 +1414,7 @@ private displayWord() {
         });
       });
 
-    cardContainer.add([card, image, wordContainer]);
+    cardContainer.add([card, image, wordContainer, speakerBg, speakerIcon]);
     return cardContainer;
   }
 
@@ -1062,17 +1474,17 @@ private displayWord() {
   }
 
   private createProgressBar(scale: number) {
-    const width = 800;
-    const height = 30;
-    const y = 680; // Position near bottom
+    const width = Math.min(800 * scale, 800); // Cap maximum width
+    const height = 30 * scale;
+    const y = this.cameras.main.height - 50 * scale; // Position relative to bottom
     
-    this.timelineContainer = this.add.container(512, y);
+    this.timelineContainer = this.add.container(this.cameras.main.width / 2, y);
     
     // Add background bar
     const bg = this.add.rectangle(0, 0, width, height, 0xeeeeee)
       .setOrigin(0.5)
       .setAlpha(0.5)
-      .setStrokeStyle(2, 0xcccccc);
+      .setStrokeStyle(2 * scale, 0xcccccc);
     
     // Add progress fill
     const fill = this.add.rectangle(-width/2, 0, 0, height, 0x4CAF50)
@@ -1082,11 +1494,11 @@ private displayWord() {
     const milestones = [0.25, 0.5, 0.75, 1];
     milestones.forEach(milestone => {
       const x = -width/2 + width * milestone;
-      const marker = this.add.circle(x, 0, 8, 0xFFD700)
-        .setStrokeStyle(2, 0xffffff);
+      const marker = this.add.circle(x, 0, 8 * scale, 0xFFD700)
+        .setStrokeStyle(2 * scale, 0xffffff);
       
-      const label = this.add.text(x, -20, `${milestone * 100}%`, {
-        fontSize: '16px',
+      const label = this.add.text(x, -20 * scale, `${milestone * 100}%`, {
+        fontSize: `${16 * scale}px`,
         fontFamily: 'Comic Sans MS',
         color: '#666666'
       }).setOrigin(0.5);
@@ -1095,10 +1507,10 @@ private displayWord() {
     });
 
     // Add current letter indicator
-    const letterIndicator = this.add.container(0, 15);
-    const bubble = this.add.circle(0, 0, 15, 0x4CAF50);
+    const letterIndicator = this.add.container(0, 15 * scale);
+    const bubble = this.add.circle(0, 0, 15 * scale, 0x4CAF50);
     const letterText = this.add.text(0, 0, 'A', {
-      fontSize: '18px',
+      fontSize: `${18 * scale}px`,
       fontFamily: 'Comic Sans MS',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -1111,7 +1523,7 @@ private displayWord() {
     this.timelineContainer.setData('indicator', letterIndicator);
 
     // Add animated glow effect
-    const glow = this.add.circle(0, 0, 20, 0x4CAF50, 0.3);
+    const glow = this.add.circle(0, 0, 20 * scale, 0x4CAF50, 0.3);
     this.timelineContainer.add(glow);
     this.tweens.add({
       targets: glow,
@@ -1120,6 +1532,55 @@ private displayWord() {
       duration: 1000,
       repeat: -1
     });
+
+    // Add resize handler for the progress bar
+    const resizeHandler = () => {
+      const newWidth = this.cameras.main.width;
+      const newHeight = this.cameras.main.height;
+      const newScale = Math.min(newWidth / 1024, newHeight / 768);
+      const newBarWidth = Math.min(800 * newScale, 800);
+      const newBarHeight = 30 * newScale;
+      const newY = newHeight - 50 * newScale;
+
+      // Update container position
+      this.timelineContainer?.setPosition(newWidth / 2, newY);
+
+      // Update background bar
+      bg.setSize(newBarWidth, newBarHeight);
+      bg.setStrokeStyle(2 * newScale, 0xcccccc);
+
+      // Update progress fill
+      fill.setSize(fill.width, newBarHeight);
+
+      // Update milestone markers
+      milestones.forEach((milestone, index) => {
+        const x = -newBarWidth/2 + newBarWidth * milestone;
+        const marker = this.timelineContainer?.list[index * 2] as Phaser.GameObjects.Circle;
+        const label = this.timelineContainer?.list[index * 2 + 1] as Phaser.GameObjects.Text;
+        
+        if (marker) {
+          marker.setPosition(x, 0);
+          marker.setRadius(8 * newScale);
+          marker.setStrokeStyle(2 * newScale, 0xffffff);
+        }
+        
+        if (label) {
+          label.setPosition(x, -20 * newScale);
+          label.setFontSize(16 * newScale);
+        }
+      });
+
+      // Update letter indicator
+      letterIndicator.setY(15 * newScale);
+      bubble.setRadius(15 * newScale);
+      letterText.setFontSize(18 * newScale);
+
+      // Update glow effect
+      glow.setRadius(20 * newScale);
+    };
+
+    // Add resize listener
+    this.scale.on('resize', resizeHandler);
   }
 
   private setupConfetti() {
@@ -1245,37 +1706,53 @@ private displayWord() {
   }
 
   private showCongratulations() {
-    // Create dark overlay
-    const overlay = this.add.rectangle(0, 0, 800, 600, 0x000000, 0.7)
-      .setOrigin(0);
+    // Get current screen dimensions and scale
+    const screenWidth = this.cameras.main.width;
+    const screenHeight = this.cameras.main.height;
+    const scale = Math.min(
+      screenWidth / 1024,
+      screenHeight / 768
+    );
 
-    // Create celebration container
-    const container = this.add.container(400, 300);
+    // Create dark overlay that covers the entire screen
+    const overlay = this.add.rectangle(
+      screenWidth / 2,
+      screenHeight / 2,
+      screenWidth,
+      screenHeight,
+      0x000000,
+      0.7
+    ).setOrigin(0.5);
+
+    // Create celebration container centered on screen
+    const container = this.add.container(screenWidth / 2, screenHeight / 2);
 
     // Add congratulations text with rainbow effect
-    const congratsText = this.add.text(0, -100, 'Congratulations! 🎉', {
-      fontSize: '64px',
+    const congratsText = this.add.text(0, -screenHeight * 0.15, 'Congratulations! 🎉', {
+      fontSize: `${64 * scale}px`,
       fontFamily: 'Comic Sans MS',
       fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 8,
+      strokeThickness: 8 * scale,
       shadow: { blur: 10, color: '#000000', fill: true }
     }).setOrigin(0.5);
 
     // Add completion message
     const message = this.add.text(0, 0, 
       "You've learned all the letters!\nGreat job! 🌟", {
-      fontSize: '32px',
+      fontSize: `${32 * scale}px`,
       fontFamily: 'Comic Sans MS',
       align: 'center',
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    // Add replay button
-    const button = this.add.rectangle(0, 100, 200, 60, 0x4CAF50)
+    // Add replay button with scaled dimensions
+    const buttonWidth = 200 * scale;
+    const buttonHeight = 60 * scale;
+    const button = this.add.rectangle(0, screenHeight * 0.15, buttonWidth, buttonHeight, 0x4CAF50)
       .setInteractive({ useHandCursor: true });
-    const buttonText = this.add.text(0, 100, 'Play Again!', {
-      fontSize: '28px',
+    const buttonText = this.add.text(0, screenHeight * 0.15, 'Play Again!', {
+      fontSize: `${28 * scale}px`,
       fontFamily: 'Comic Sans MS',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -1306,14 +1783,14 @@ private displayWord() {
     this.time.addEvent({
       delay: 500,
       repeat: 10,
-      callback: this.launchFirework,
+      callback: () => this.launchFirework(screenWidth, screenHeight),
       callbackScope: this
     });
 
-    // Button interactions
+    // Button interactions with scaled effects
     button.on('pointerover', () => {
       button.setFillStyle(0x45a049);
-      this.starsEmitter.emitParticleAt(button.x, button.y, 5);
+      this.starsEmitter.emitParticleAt(button.x + container.x, button.y + container.y, 5);
     });
 
     button.on('pointerout', () => {
@@ -1321,16 +1798,49 @@ private displayWord() {
     });
 
     button.on('pointerdown', () => {
-      // Reset game
+      // Reset game state
+      this.currentIndex = 0;
+      this.eggs = [];
+      this.letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      
+      // Remove all existing game objects
+      this.children.removeAll();
+      
+      // Restart the scene
       this.scene.restart();
     });
+
+    // Add resize handler for the congratulations screen
+    const resizeHandler = () => {
+      const newWidth = this.cameras.main.width;
+      const newHeight = this.cameras.main.height;
+      const newScale = Math.min(newWidth / 1024, newHeight / 768);
+
+      // Update overlay
+      overlay.setPosition(newWidth / 2, newHeight / 2)
+            .setSize(newWidth, newHeight);
+
+      // Update container position
+      container.setPosition(newWidth / 2, newHeight / 2);
+
+      // Update text sizes
+      congratsText.setFontSize(64 * newScale);
+      message.setFontSize(32 * newScale);
+      buttonText.setFontSize(28 * newScale);
+
+      // Update button size
+      button.setSize(200 * newScale, 60 * newScale);
+    };
+
+    // Add resize listener
+    this.scale.on('resize', resizeHandler);
   }
 
-  private launchFirework() {
-    const startX = Phaser.Math.Between(200, 600);
-    const startY = 600;
-    const endX = startX + Phaser.Math.Between(-100, 100);
-    const endY = Phaser.Math.Between(100, 400);
+  private launchFirework(screenWidth: number, screenHeight: number) {
+    const startX = Phaser.Math.Between(screenWidth * 0.2, screenWidth * 0.8);
+    const startY = screenHeight;
+    const endX = startX + Phaser.Math.Between(-screenWidth * 0.1, screenWidth * 0.1);
+    const endY = Phaser.Math.Between(screenHeight * 0.2, screenHeight * 0.6);
 
     // Launch trail
     const trail = this.add.particles(0, 0, 'particle', {
@@ -1359,18 +1869,13 @@ private displayWord() {
         // Explosion
         this.fireworksEmitter.setPosition(endX, endY);
         this.fireworksEmitter.explode(50);
-        // Sound effect
-        // this.sound.play('explosion');
       }
     });
   }
-}
 
-// Add this interface at the top of the file with other interfaces
-interface Word {
-    _id: string;
-    letter: string;
-    word: string;
-    imageUrl: string;
-    imageKey?: string; // Add this new property
+  private stopMusic() {
+    if (this.bgMusic) {
+        this.bgMusic.stop();
+    }
+  }
 }
