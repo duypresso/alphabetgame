@@ -1,137 +1,199 @@
-# Alphabet Learning Game
+# Alphabet Game
 
-A fun and interactive game for children to learn the alphabet through egg-breaking and word association.
+A fun and interactive educational game designed to help users learn the alphabet and vocabulary through engaging gameplay and practice modes.
 
-## Features
+## Project Overview
 
-- Interactive egg-breaking mechanics
-- Random word generation for each letter
-- Visual and animated feedback
-- Progress tracking
-- Responsive design for all screen sizes
-- Full-screen support
-- Particle effects and celebrations
+Alphabet Game is an educational application that combines visual and audio elements to create an immersive learning experience. The game features:
+
+- Main menu with different game modes
+- Practice mode for learning new words
+- Interactive gameplay with sound effects
+- Visual representation of words with corresponding images
 
 ## Tech Stack
 
-- Frontend:
-  - React
-  - Phaser 3
-  - TypeScript
-  - CSS3
-- Backend:
-  - Golang
-  - MongoDB
-  - AWS S3 (for image storage)
+### Frontend
+- **TypeScript** - Main programming language
+- **React** - UI library for component-based development
+- **Webpack** - Module bundler
+- **HTML/CSS** - Structure and styling
 
-## Setup
+### Backend
+- **Go** - Server-side language
+- **RESTful API** - Communication between frontend and backend
 
-1. Install dependencies:
+### Storage
+- **AWS S3** - Asset storage (images and audio files)
+- **MongoDB** - Word storage and link to image on AWS S3
 
-# Frontend
+### Assets
+- Custom images for visual representation
+- Audio files for sound effects and background music
+
+## Prerequisites
+
+- Node.js (v14+)
+- Go (v1.16+)
+- Cloud storage account (for asset hosting)
+- MongoDB or similar database (based on setup scripts)
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/alphabetgame.git
+cd alphabetgame
+```
+
+2. Install frontend dependencies:
+```bash
 npm install
-
-# Backend
-go mod tidy
 ```
 
-2. Create `.env` file in root directory:
-```env
-MONGO_URI=your_mongodb_connection_string
-AWS_S3_BUCKET=your_s3_bucket_name
-AWS_ACCESS_KEY=your_aws_access_key
-AWS_SECRET_KEY=your_aws_secret_key
+3. Set up Go dependencies:
+```bash
+cd backend
+go mod download
+cd ..
 ```
 
-3. Initialize the database:
+4. Configure environment variables:
+```bash
+# Copy the example .env files
+cp .env.example .env
+cp backend/.env.example backend/.env
+```
+
+5. Edit the `.env` files with your configuration settings
+
+## Database Setup
+
+1. Initialize the database:
+```bash
 cd backend/initdb
+go run main.go
+cd ../..
+```
+
+2. Set up asset storage:
+```bash
+cd backend/setup
+go run create_bucket.go
+go run upload_assets.go
+go run verify_upload.go
+cd ../..
+```
+
+## Running the Application
+
+### Development Mode
+
+1. Start the backend server:
+```bash
+cd backend
 go run main.go
 ```
 
-4. Run the application:
-# Development (runs both frontend and backend)
-npm run dev:all
+2. In a new terminal, start the frontend development server:
+```bash
+npm run dev
+```
 
-# Production
+3. Open your browser and navigate to `http://localhost:8080`
+
+### Production Mode
+
+1. Build the frontend:
+```bash
 npm run build
-npm start
 ```
 
-## Development
-
-- Frontend code is in `src/renderer`
-- Backend code is in `backend/`
-- Assets should be placed in `assets/`
-
-## File Structure
-
-```
-alphabetgame/
-├── assets/              # Game assets (images, sounds)
-├── backend/            
-│   ├── initdb/         # Database initialization
-│   ├── setup/          # AWS setup scripts
-│   └── main.go         # Backend server
-├── src/
-│   ├── renderer/       # Frontend game code
-│   ├── services/       # Game services
-│   └── types/          # TypeScript types
-└── package.json
+2. Build the backend:
+```bash
+cd backend
+go build
 ```
 
-## Database Structure & Image Display
-
-### MongoDB Collection Structure
-javascript
-// Collection: words
-{
-  "letter": "A",
-  "words": [
-    {
-      "word": "Apple",
-      "imageUrl": "https://learnabcapp.s3.ap-southeast-1.amazonaws.com/assets/A/apple.jpg"
-    },
-    {
-      "word": "Ant",
-      "imageUrl": "https://learnabcapp.s3.ap-southeast-1.amazonaws.com/assets/A/ant.jpg"
-    }
-  ]
-}
+3. Start the server:
+```bash
+./backend
 ```
 
-### Image Fetching Flow
-1. Frontend clicks letter -> Makes API request to `/api/words/{letter}`
-2. Backend randomly selects one word-image pair from the array
-3. Frontend receives:
-```json
-{
-  "letter": "A",
-  "word": "Apple",
-  "imageUrl": "https://learnabcapp.s3.ap-southeast-1.amazonaws.com/assets/A/apple.jpg"
-}
+## Project Structure
+
 ```
-4. Frontend loads image using Phaser's loader
-5. Image is displayed in popup with word
-
-### Adding New Words
-1. Upload image to S3 bucket in correct folder structure:
+.
+├── assets/                  # Game assets and resources
+│   ├── A/                   # Alphabet-specific images
+│   │   ├── airplane.png
+│   │   ├── ant.png
+│   │   └── apple.png
+│   ├── audio/               # Sound effects and music
+│   │   ├── egg_cracking.mp3
+│   │   ├── gameplay.mp3
+│   │   └── mainmenu.mp3
+│   ├── word-images/         # Images for vocabulary words
+│   │   └── checklist.md
+│   ├── broken_egg.png
+│   ├── egg.png
+│   └── partical.png
+├── backend/                 # Go server implementation
+│   ├── initdb/              # Database initialization
+│   │   └── main.go
+│   ├── setup/               # Cloud storage configuration
+│   │   ├── create_bucket.go
+│   │   ├── upload_assets.go
+│   │   └── verify_upload.go
+│   ├── .env
+│   ├── go.mod
+│   ├── go.sum
+│   └── main.go
+├── scripts/                 # Utility scripts
+│   ├── create-placeholder-egg.js
+│   ├── create-word-images.js
+│   └── prepare-word-images.js
+├── src/                     # Frontend source code
+│   ├── main/                # Main process code
+│   │   └── main.ts
+│   ├── renderer/            # UI rendering and game logic
+│   │   ├── components/      # Reusable UI components
+│   │   │   └── TitleBar.tsx
+│   │   ├── styles/          # Component-specific styles
+│   │   │   └── titlebar.css
+│   │   ├── App.css
+│   │   ├── App.tsx
+│   │   ├── Game.ts
+│   │   ├── index.html
+│   │   ├── index.ts
+│   │   ├── index.tsx
+│   │   ├── MainMenu.ts
+│   │   ├── PracticeMode.ts
+│   │   └── styles.css
+│   ├── scripts/             # Frontend scripts
+│   │   └── initDb.ts
+│   ├── server/              # Server communication
+│   │   └── index.ts
+│   ├── services/            # API and data services
+│   │   └── wordService.ts
+│   ├── types/               # TypeScript type definitions
+│   │   └── Word.ts
+│   ├── index.css
+│   └── index.html
+├── .env                     # Environment variables
+├── .gitignore               # Git ignore file
+├── go.mod                   # Go module definition
+├── go.sum                   # Go dependencies checksum
+├── package.json             # Node.js package definition
+├── tsconfig.json            # TypeScript configuration
+└── webpack.config.js        # Webpack configuration
 ```
-s3://learnabcapp/assets/
-  └── A/
-      ├── apple.jpg
-      ├── ant.jpg
-      └── airplane.jpg
-```
-2. Add entry to MongoDB collection using initdb script or MongoDB compass
 
-## Contributing
+## Development Scripts
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+- `npm run dev` - Start development server
+- `npm run build` - Build production assets
+- `npm run prepare-word-images` - Process word images for the game
 
-## License
 
-MIT License
+
