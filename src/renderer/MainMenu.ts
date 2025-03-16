@@ -34,7 +34,7 @@ export class MainMenuScene extends Phaser.Scene {
         this.updateBackground();
 
         // Add title with shadow
-        this.title = this.add.text(512, 200, '🎯 Alphabet Game 🎯', {
+        this.title = this.add.text(this.cameras.main.width / 2, this.cameras.main.height * 0.25, '🎯 Alphabet Game 🎯', {
             fontSize: '64px',
             fontFamily: 'Comic Sans MS',
             color: '#4A4A4A',
@@ -60,11 +60,12 @@ export class MainMenuScene extends Phaser.Scene {
         });
 
         // Calculate vertical center and spacing
+        const centerX = this.cameras.main.width / 2;
         const centerY = this.cameras.main.height / 2;
         const buttonSpacing = 80; // Space between buttons
 
         // Create start button container at center minus half spacing
-        this.startButton = this.add.container(512, centerY - buttonSpacing/2);
+        this.startButton = this.add.container(centerX, centerY - buttonSpacing/2);
 
         // Button background with gradient
         const startButtonBg = this.add.graphics();
@@ -87,7 +88,7 @@ export class MainMenuScene extends Phaser.Scene {
         this.startButton.add([startGlow, startButtonBg, startButtonText]);
 
         // Create practice button container at center plus half spacing
-        this.practiceButton = this.add.container(512, centerY + buttonSpacing/2);
+        this.practiceButton = this.add.container(centerX, centerY + buttonSpacing/2);
 
         // Practice button background with gradient
         const practiceButtonBg = this.add.graphics();
@@ -233,6 +234,9 @@ export class MainMenuScene extends Phaser.Scene {
     }
 
     private addClickParticles() {
+        const centerX = this.cameras.main.width / 2;
+        const centerY = this.cameras.main.height / 2;
+        
         const particles = this.add.particles(0, 0, 'particle', {
             speed: { min: 100, max: 200 },
             scale: { start: 0.2, end: 0 },
@@ -244,7 +248,7 @@ export class MainMenuScene extends Phaser.Scene {
             tint: [0xffff00, 0x00ff00, 0x00ffff]
         });
 
-        particles.emitParticleAt(512, 400);
+        particles.emitParticleAt(centerX, centerY);
         this.time.delayedCall(1000, () => particles.destroy());
     }
 

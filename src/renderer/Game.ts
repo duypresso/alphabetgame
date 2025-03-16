@@ -100,7 +100,7 @@ export class AlphabetScene extends Phaser.Scene {
   create() {
     // Start background music
     this.bgMusic = this.sound.add('gameplayMusic', {
-        volume: 0.5,
+        volume: 0.25,
         loop: true
     });
     this.bgMusic.play();
@@ -162,35 +162,13 @@ export class AlphabetScene extends Phaser.Scene {
             });
         });
 
-    // Add scaled title with responsive positioning
-    const title = this.add.text(
-      this.cameras.main.width / 2,
-      this.cameras.main.height * 0.08, // Adjusted position for better spacing
-      '🥚 Break the Eggs! 🥚',
-      {
-        fontSize: `${Math.max(48 * scale, 32)}px`,
-        fontFamily: 'Comic Sans MS',
-        color: '#4A4A4A',
-        stroke: '#ffffff',
-        strokeThickness: Math.max(6 * scale, 3),
-        shadow: {
-          color: '#000000',
-          fill: true,
-          offsetX: Math.max(2 * scale, 1),
-          offsetY: Math.max(2 * scale, 1),
-          blur: 8
-        }
-      }
-    ).setOrigin(0.5)
-      .setName('title');
-
     // Calculate grid dimensions with responsive spacing
     const gridConfig = {
       cols: 7,
       rows: 4,
-      eggBaseSize: Math.min(100 * scale, 120), // Cap maximum egg size
-      spacing: Math.min(130 * scale, 150), // Increased maximum spacing
-      eggScale: Math.min(0.7 * scale, 0.8) // Slightly increased maximum scale
+      eggBaseSize: 120, // Fixed base size
+      spacing: Math.min(160 * scale, 180), // Adjusted spacing to accommodate fixed egg size
+      eggScale: 0.9 // Fixed scale factor
     };
 
     // Calculate total grid width and height
@@ -244,6 +222,33 @@ export class AlphabetScene extends Phaser.Scene {
 
       egg.setData('numberText', numberText);
     }
+
+    // Create a container for the title with higher depth
+    const titleContainer = this.add.container(0, 0).setDepth(1000);
+    
+    // Add scaled title with responsive positioning
+    const title = this.add.text(
+      this.cameras.main.width / 2,
+      this.cameras.main.height * 0.08,
+      '🥚 Break the Eggs! 🥚',
+      {
+        fontSize: `${Math.max(48 * scale, 32)}px`,
+        fontFamily: 'Comic Sans MS',
+        color: '#4A4A4A',
+        stroke: '#ffffff',
+        strokeThickness: Math.max(6 * scale, 3),
+        shadow: {
+          color: '#000000',
+          fill: true,
+          offsetX: Math.max(2 * scale, 1),
+          offsetY: Math.max(2 * scale, 1),
+          blur: 8
+        }
+      }
+    ).setOrigin(0.5)
+      .setName('title');
+
+    titleContainer.add(title);
 
     // Add progress bar at bottom
     this.createProgressBar(scale);
@@ -309,9 +314,9 @@ export class AlphabetScene extends Phaser.Scene {
     const gridConfig = {
         cols: 7,
         rows: 4,
-        eggBaseSize: Math.min(100 * scale, 120),
-        spacing: Math.min(130 * scale, 150),
-        eggScale: Math.min(0.7 * scale, 0.8)
+        eggBaseSize: 120,
+        spacing: Math.min(160 * scale, 180),
+        eggScale: 0.9
     };
 
     // Calculate total grid width and height
@@ -478,7 +483,7 @@ export class AlphabetScene extends Phaser.Scene {
     egg.on('pointerout', () => {
       this.tweens.add({
         targets: egg,
-        scale: 0.7,  // Return to base scale
+        scale: 0.9,  // Match the fixed eggScale
         duration: 200,
         ease: 'Back.out'
       });
