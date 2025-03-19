@@ -133,7 +133,7 @@ func main() {
 	})
 
 	// Start server
-	port := "8080" // Changed from "3000" to "8080"
+	port := "10000" // Changed from "3000" to "8080"
 	log.Printf("Server starting on port %s", port)
 	if err := http.ListenAndServe(":"+port, c.Handler(r)); err != nil {
 		log.Fatal(err)
