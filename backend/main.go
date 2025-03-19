@@ -51,13 +51,19 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
-	// Load .env file
+	// Load .env file - only in development
 	if err := godotenv.Load("../.env"); err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("Warning: .env file not found, using environment variables")
+	}
+
+	// Get MongoDB URI from environment
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		log.Fatal("MONGO_URI environment variable is required")
 	}
 
 	// Connect to MongoDB
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(os.Getenv("MONGO_URI")))
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -126,14 +132,21 @@ func main() {
 		json.NewEncoder(w).Encode(map[string]string{"message": "API is working"})
 	})
 
-	// Setup CORS
+	// Setup CORS with more specific settings
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowedOrigins:   []string{"*"}, // In production, replace with your frontend domain
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any major browser
 	})
 
-	// Start server
-	port := "10000" // Changed from "3000" to "8080"
+	// Get port from environment variable or use default
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "10000" // fallback port
+	}
+
 	log.Printf("Server starting on port %s", port)
 	if err := http.ListenAndServe(":"+port, c.Handler(r)); err != nil {
 		log.Fatal(err)
